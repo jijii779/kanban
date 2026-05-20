@@ -96,44 +96,70 @@ async function signOut() {
 // Check authentication status and redirect
 async function checkAuth() {
   console.log('[checkAuth] Starting authentication check...');
+  console.log('[checkAuth] Supabase client:', typeof supabase, supabase ? 'initialized' : 'null');
 
-  // First, wait for session restoration (important for OAuth redirects)
-  const { data: { session } } = await supabase.auth.getSession();
-  console.log('[checkAuth] Session:', session ? 'exists' : 'null');
+  try {
+    // First, wait for session restoration (important for OAuth redirects)
+    console.log('[checkAuth] Calling getSession()...');
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    console.log('[checkAuth] getSession() completed');
 
-  const user = session?.user || await getCurrentUser();
-  console.log('[checkAuth] User:', user ? user.email : 'null');
-
-  const loginPage = document.getElementById('login-page');
-  const kanbanPage = document.getElementById('kanban-page');
-  console.log('[checkAuth] DOM elements:', {
-    loginPage: loginPage ? 'found' : 'missing',
-    kanbanPage: kanbanPage ? 'found' : 'missing'
-  });
-
-  if (user) {
-    // User is logged in
-    console.log('[checkAuth] User authenticated, showing kanban page');
-    loginPage.style.setProperty('display', 'none', 'important');
-    kanbanPage.style.setProperty('display', 'block', 'important');
-
-    // Display user info
-    const userEmailElement = document.getElementById('user-email');
-    if (userEmailElement) {
-      userEmailElement.textContent = user.email;
-      console.log('[checkAuth] User email displayed:', user.email);
+    if (sessionError) {
+      console.error('[checkAuth] Session error:', sessionError);
     }
 
-    // Verify display change
-    console.log('[checkAuth] After change - loginPage display:', window.getComputedStyle(loginPage).display);
-    console.log('[checkAuth] After change - kanbanPage display:', window.getComputedStyle(kanbanPage).display);
+    console.log('[checkAuth] Session:', session ? 'exists' : 'null');
 
-    return user;
-  } else {
-    // User is not logged in
-    console.log('[checkAuth] No user, showing login page');
-    loginPage.style.setProperty('display', 'flex', 'important');
-    kanbanPage.style.setProperty('display', 'none', 'important');
+    const user = session?.user || await getCurrentUser();
+    console.log('[checkAuth] User:', user ? user.email : 'null');
+
+    const loginPage = document.getElementById('login-page');
+    const kanbanPage = document.getElementById('kanban-page');
+    console.log('[checkAuth] DOM elements:', {
+      loginPage: loginPage ? 'found' : 'missing',
+      kanbanPage: kanbanPage ? 'found' : 'missing'
+    });
+
+    if (user) {
+      // User is logged in
+      console.log('[checkAuth] User authenticated, showing kanban page');
+
+      if (!loginPage || !kanbanPage) {
+        console.error('[checkAuth] DOM elements missing! Cannot toggle display.');
+        return user;
+      }
+
+      loginPage.style.setProperty('display', 'none', 'important');
+      kanbanPage.style.setProperty('display', 'block', 'important');
+
+      // Display user info
+      const userEmailElement = document.getElementById('user-email');
+      if (userEmailElement) {
+        userEmailElement.textContent = user.email;
+        console.log('[checkAuth] User email displayed:', user.email);
+      } else {
+        console.warn('[checkAuth] user-email element not found');
+      }
+
+      // Verify display change
+      console.log('[checkAuth] After change - loginPage display:', window.getComputedStyle(loginPage).display);
+      console.log('[checkAuth] After change - kanbanPage display:', window.getComputedStyle(kanbanPage).display);
+
+      return user;
+    } else {
+      // User is not logged in
+      console.log('[checkAuth] No user, showing login page');
+
+      if (loginPage && kanbanPage) {
+        loginPage.style.setProperty('display', 'flex', 'important');
+        kanbanPage.style.setProperty('display', 'none', 'important');
+      }
+
+      return null;
+    }
+  } catch (error) {
+    console.error('[checkAuth] Caught error:', error);
+    console.error('[checkAuth] Error stack:', error.stack);
     return null;
   }
 }
