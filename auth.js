@@ -114,8 +114,8 @@ async function checkAuth() {
   if (user) {
     // User is logged in
     console.log('[checkAuth] User authenticated, showing kanban page');
-    loginPage.style.display = 'none';
-    kanbanPage.style.display = 'block';
+    loginPage.style.setProperty('display', 'none', 'important');
+    kanbanPage.style.setProperty('display', 'block', 'important');
 
     // Display user info
     const userEmailElement = document.getElementById('user-email');
@@ -124,12 +124,16 @@ async function checkAuth() {
       console.log('[checkAuth] User email displayed:', user.email);
     }
 
+    // Verify display change
+    console.log('[checkAuth] After change - loginPage display:', window.getComputedStyle(loginPage).display);
+    console.log('[checkAuth] After change - kanbanPage display:', window.getComputedStyle(kanbanPage).display);
+
     return user;
   } else {
     // User is not logged in
     console.log('[checkAuth] No user, showing login page');
-    loginPage.style.display = 'flex';
-    kanbanPage.style.display = 'none';
+    loginPage.style.setProperty('display', 'flex', 'important');
+    kanbanPage.style.setProperty('display', 'none', 'important');
     return null;
   }
 }
