@@ -67,7 +67,13 @@ async function fetchCards() {
 
 // Create new card in database
 async function createCardInDB(content, columnId) {
-  if (!currentUser) return null;
+  console.log('createCardInDB called with:', { content, columnId, currentUser });
+
+  if (!currentUser) {
+    console.error('No current user - cannot create card');
+    showError('로그인이 필요합니다.');
+    return null;
+  }
 
   const { data, error } = await supabase
     .from('cards')
@@ -82,10 +88,11 @@ async function createCardInDB(content, columnId) {
 
   if (error) {
     console.error('Error creating card:', error);
-    showError('Failed to create card. Please try again.');
+    showError('카드 생성 실패: ' + error.message);
     return null;
   }
 
+  console.log('Card created in DB successfully:', data);
   return data;
 }
 
@@ -158,12 +165,21 @@ function addCardEventListeners(card) {
 }
 
 async function addCardToColumn(columnId, content) {
+  console.log('addCardToColumn called with:', { columnId, content, currentUser });
+
   // Create in database first
   const cardData = await createCardInDB(content, columnId);
-  if (!cardData) return null;
+  console.log('Card data from DB:', cardData);
+
+  if (!cardData) {
+    console.error('Failed to create card in DB');
+    return null;
+  }
 
   // Add to UI
   const cardsContainer = document.getElementById(`cards-${columnId}`);
+  console.log('Cards container:', cardsContainer);
+
   const card = createCardElement(cardData);
   cardsContainer.appendChild(card);
   updateCardCount(columnId);
@@ -290,25 +306,34 @@ function setupAddCardForm(column) {
 
   submitBtn.addEventListener('click', async () => {
     const content = input.value.trim();
+    console.log('Add button clicked, content:', content);
 
     if (!content) {
       input.classList.add('error');
+      console.log('Empty content, showing error');
       return;
     }
 
     const columnId = column.getAttribute('data-column-id');
+    console.log('Adding card to column:', columnId);
 
     // Disable button while creating
     submitBtn.disabled = true;
     submitBtn.textContent = 'Adding...';
 
-    const card = await addCardToColumn(columnId, content);
+    try {
+      const card = await addCardToColumn(columnId, content);
+      console.log('Card created:', card);
 
-    if (card) {
-      input.value = '';
-      input.classList.remove('error');
-      inputContainer.style.display = 'none';
-      addCardBtn.style.display = 'block';
+      if (card) {
+        input.value = '';
+        input.classList.remove('error');
+        inputContainer.style.display = 'none';
+        addCardBtn.style.display = 'block';
+      }
+    } catch (error) {
+      console.error('Error adding card:', error);
+      showError('카드 추가 실패: ' + error.message);
     }
 
     submitBtn.disabled = false;
