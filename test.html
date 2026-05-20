@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auth Test - Kanban</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: monospace;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h2 {
+      margin-top: 0;
+      color: #333;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      border-radius: 4px;
+      background: #0052cc;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #0041a8;
+    }
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .success {
+      background: #e3fcef;
+      border-left: 4px solid #00875a;
+    }
+    .error {
+      background: #ffebe6;
+      border-left: 4px solid #de350b;
+    }
+    .info {
+      background: #deebff;
+      border-left: 4px solid #0052cc;
+    }
+    .log-output {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 4px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .log-entry {
+      margin: 5px 0;
+    }
+    .log-success { color: #4ec9b0; }
+    .log-error { color: #f48771; }
+    .log-warn { color: #dcdcaa; }
+    input {
+      padding: 8px;
+      margin: 5px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      width: 250px;
+    }
+    .test-section {
+      margin: 15px 0;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 Kanban Auth Debugging Test Page</h1>
+
+  <div class="container">
+    <h2>1. Supabase Connection Test</h2>
+    <button onclick="testConnection()">Test Connection</button>
+    <div id="connection-status"></div>
+  </div>
+
+  <div class="container">
+    <h2>2. Login Test</h2>
+    <div class="test-section">
+      <h3>Email Login</h3>
+      <input type="email" id="test-email" placeholder="Email" value="jihye.choi@goodus.com">
+      <input type="password" id="test-password" placeholder="Password" value="">
+      <button onclick="testEmailLogin()">Login with Email</button>
+    </div>
+    <div class="test-section">
+      <h3>OAuth Login</h3>
+      <button onclick="testGitHubLogin()">Login with GitHub</button>
+      <button onclick="testGoogleLogin()">Login with Google</button>
+    </div>
+    <div id="login-status"></div>
+  </div>
+
+  <div class="container">
+    <h2>3. Session & User Test</h2>
+    <button onclick="testSession()">Check Session</button>
+    <button onclick="testGetUser()">Get User</button>
+    <button onclick="testLogout()">Logout</button>
+    <div id="session-status"></div>
+  </div>
+
+  <div class="container">
+    <h2>4. Auth State Change Test</h2>
+    <button onclick="setupAuthListener()">Setup Auth Listener</button>
+    <button onclick="clearAuthListener()">Clear Listener</button>
+    <div id="listener-status"></div>
+  </div>
+
+  <div class="container">
+    <h2>5. DOM Elements Test</h2>
+    <button onclick="testDOMElements()">Check DOM Elements</button>
+    <div id="dom-status"></div>
+  </div>
+
+  <div class="container">
+    <h2>6. Full Login Flow Test</h2>
+    <button onclick="testFullFlow()">Run Full Flow Test</button>
+    <div id="flow-status"></div>
+  </div>
+
+  <div class="container">
+    <h2>📋 Debug Log</h2>
+    <button onclick="clearLog()">Clear Log</button>
+    <button onclick="exportLog()">Export Log</button>
+    <div class="log-output" id="log-output"></div>
+  </div>
+
+  <script type="module">
+    import SUPABASE_CONFIG from './config.js';
+
+    // Initialize Supabase
+    window.supabase = window.supabase.createClient(
+      SUPABASE_CONFIG.url,
+      SUPABASE_CONFIG.anonKey
+    );
+
+    let authSubscription = null;
+
+    // Logging utilities
+    window.log = function(message, type = 'info') {
+      const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+      const logOutput = document.getElementById('log-output');
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = `[${timestamp}] ${message}`;
+      logOutput.appendChild(entry);
+      logOutput.scrollTop = logOutput.scrollHeight;
+      console.log(message);
+    };
+
+    window.clearLog = function() {
+      document.getElementById('log-output').innerHTML = '';
+    };
+
+    window.exportLog = function() {
+      const log = document.getElementById('log-output').textContent;
+      const blob = new Blob([log], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `kanban-debug-${Date.now()}.txt`;
+      a.click();
+    };
+
+    // Test 1: Connection
+    window.testConnection = async function() {
+      log('Testing Supabase connection...');
+      const status = document.getElementById('connection-status');
+
+      try {
+        const { data, error } = await window.supabase.auth.getSession();
+        if (error) throw error;
+
+        status.innerHTML = `<div class="status success">✅ Connected to Supabase: ${SUPABASE_CONFIG.url}</div>`;
+        log('✅ Supabase connection successful', 'success');
+        log(`Session exists: ${!!data.session}`, 'info');
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Connection failed: ${error.message}</div>`;
+        log(`❌ Connection error: ${error.message}`, 'error');
+      }
+    };
+
+    // Test 2: Email Login
+    window.testEmailLogin = async function() {
+      const email = document.getElementById('test-email').value;
+      const password = document.getElementById('test-password').value;
+      const status = document.getElementById('login-status');
+
+      log(`Attempting email login: ${email}`);
+
+      try {
+        const { data, error } = await window.supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (error) throw error;
+
+        status.innerHTML = `<div class="status success">✅ Login successful: ${data.user.email}</div>`;
+        log(`✅ Email login successful: ${data.user.email}`, 'success');
+        log(`User ID: ${data.user.id}`, 'info');
+        log(`Session exists: ${!!data.session}`, 'info');
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Login failed: ${error.message}</div>`;
+        log(`❌ Login error: ${error.message}`, 'error');
+      }
+    };
+
+    // Test 3: GitHub Login
+    window.testGitHubLogin = async function() {
+      log('Attempting GitHub login...');
+      const status = document.getElementById('login-status');
+
+      try {
+        const { error } = await window.supabase.auth.signInWithOAuth({
+          provider: 'github',
+          options: {
+            redirectTo: window.location.href
+          }
+        });
+
+        if (error) throw error;
+
+        log('GitHub OAuth redirect initiated', 'success');
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ GitHub login failed: ${error.message}</div>`;
+        log(`❌ GitHub login error: ${error.message}`, 'error');
+      }
+    };
+
+    // Test 4: Google Login
+    window.testGoogleLogin = async function() {
+      log('Attempting Google login...');
+      const status = document.getElementById('login-status');
+
+      try {
+        const { error } = await window.supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.href
+          }
+        });
+
+        if (error) throw error;
+
+        log('Google OAuth redirect initiated', 'success');
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Google login failed: ${error.message}</div>`;
+        log(`❌ Google login error: ${error.message}`, 'error');
+      }
+    };
+
+    // Test 5: Session
+    window.testSession = async function() {
+      log('Checking session...');
+      const status = document.getElementById('session-status');
+
+      try {
+        const { data, error } = await window.supabase.auth.getSession();
+        if (error) throw error;
+
+        if (data.session) {
+          status.innerHTML = `
+            <div class="status success">
+              ✅ Session active<br>
+              User: ${data.session.user.email}<br>
+              Expires: ${new Date(data.session.expires_at * 1000).toLocaleString()}
+            </div>
+          `;
+          log(`✅ Session active: ${data.session.user.email}`, 'success');
+        } else {
+          status.innerHTML = `<div class="status info">ℹ️ No active session</div>`;
+          log('ℹ️ No active session', 'warn');
+        }
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Session check failed: ${error.message}</div>`;
+        log(`❌ Session error: ${error.message}`, 'error');
+      }
+    };
+
+    // Test 6: Get User
+    window.testGetUser = async function() {
+      log('Getting user...');
+      const status = document.getElementById('session-status');
+
+      try {
+        const { data, error } = await window.supabase.auth.getUser();
+        if (error) throw error;
+
+        if (data.user) {
+          status.innerHTML = `
+            <div class="status success">
+              ✅ User found<br>
+              Email: ${data.user.email}<br>
+              ID: ${data.user.id}<br>
+              Created: ${new Date(data.user.created_at).toLocaleString()}
+            </div>
+          `;
+          log(`✅ User found: ${data.user.email}`, 'success');
+        } else {
+          status.innerHTML = `<div class="status info">ℹ️ No user</div>`;
+          log('ℹ️ No user found', 'warn');
+        }
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Get user failed: ${error.message}</div>`;
+        log(`❌ Get user error: ${error.message}`, 'error');
+      }
+    };
+
+    // Test 7: Logout
+    window.testLogout = async function() {
+      log('Logging out...');
+      const status = document.getElementById('session-status');
+
+      try {
+        const { error } = await window.supabase.auth.signOut();
+        if (error) throw error;
+
+        status.innerHTML = `<div class="status success">✅ Logged out successfully</div>`;
+        log('✅ Logout successful', 'success');
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Logout failed: ${error.message}</div>`;
+        log(`❌ Logout error: ${error.message}`, 'error');
+      }
+    };
+
+    // Test 8: Auth Listener
+    window.setupAuthListener = function() {
+      log('Setting up auth state listener...');
+      const status = document.getElementById('listener-status');
+
+      authSubscription = window.supabase.auth.onAuthStateChange((event, session) => {
+        log(`🔔 Auth state changed: ${event}`, 'success');
+        if (session) {
+          log(`   User: ${session.user.email}`, 'info');
+        }
+
+        status.innerHTML = `
+          <div class="status success">
+            ✅ Listener active<br>
+            Last event: ${event}<br>
+            User: ${session ? session.user.email : 'none'}
+          </div>
+        `;
+      });
+
+      status.innerHTML = `<div class="status success">✅ Auth listener setup complete</div>`;
+      log('✅ Auth listener active', 'success');
+    };
+
+    window.clearAuthListener = function() {
+      if (authSubscription) {
+        authSubscription.data.subscription.unsubscribe();
+        authSubscription = null;
+        log('Auth listener cleared', 'info');
+      }
+      document.getElementById('listener-status').innerHTML = `<div class="status info">ℹ️ Listener cleared</div>`;
+    };
+
+    // Test 9: DOM Elements
+    window.testDOMElements = function() {
+      log('Checking DOM elements from main page...');
+      const status = document.getElementById('dom-status');
+
+      // This will check if elements would exist in the main app
+      const checks = [
+        { id: 'login-page', expected: 'Main login container' },
+        { id: 'kanban-page', expected: 'Main kanban board' },
+        { id: 'user-email', expected: 'User email display' },
+        { id: 'logout-btn', expected: 'Logout button' }
+      ];
+
+      let html = '<div class="status info">Expected DOM elements in main app:<br><br>';
+      checks.forEach(check => {
+        html += `• #${check.id} - ${check.expected}<br>`;
+      });
+      html += '</div>';
+
+      status.innerHTML = html;
+      log('DOM element check complete (reference only)', 'info');
+    };
+
+    // Test 10: Full Flow
+    window.testFullFlow = async function() {
+      log('========================================', 'info');
+      log('Starting full authentication flow test...', 'info');
+      log('========================================', 'info');
+      const status = document.getElementById('flow-status');
+      const results = [];
+
+      // Step 1: Check connection
+      log('Step 1: Testing connection...');
+      try {
+        await window.supabase.auth.getSession();
+        results.push('✅ Connection OK');
+        log('✅ Step 1 passed', 'success');
+      } catch (error) {
+        results.push(`❌ Connection failed: ${error.message}`);
+        log(`❌ Step 1 failed: ${error.message}`, 'error');
+      }
+
+      // Step 2: Check current session
+      log('Step 2: Checking current session...');
+      try {
+        const { data } = await window.supabase.auth.getSession();
+        if (data.session) {
+          results.push(`✅ Session exists: ${data.session.user.email}`);
+          log(`✅ Step 2 passed: User ${data.session.user.email}`, 'success');
+        } else {
+          results.push('ℹ️ No active session');
+          log('ℹ️ Step 2: No session found', 'warn');
+        }
+      } catch (error) {
+        results.push(`❌ Session check failed: ${error.message}`);
+        log(`❌ Step 2 failed: ${error.message}`, 'error');
+      }
+
+      // Step 3: Check user
+      log('Step 3: Checking user...');
+      try {
+        const { data } = await window.supabase.auth.getUser();
+        if (data.user) {
+          results.push(`✅ User verified: ${data.user.email}`);
+          log(`✅ Step 3 passed: User verified`, 'success');
+        } else {
+          results.push('ℹ️ No user found');
+          log('ℹ️ Step 3: No user', 'warn');
+        }
+      } catch (error) {
+        results.push(`❌ User check failed: ${error.message}`);
+        log(`❌ Step 3 failed: ${error.message}`, 'error');
+      }
+
+      log('========================================', 'info');
+      log('Full flow test complete', 'info');
+      log('========================================', 'info');
+
+      status.innerHTML = `<div class="status info">${results.join('<br>')}</div>`;
+    };
+
+    // Auto-run on load
+    window.addEventListener('DOMContentLoaded', async () => {
+      log('=== Test page loaded ===', 'info');
+      log(`URL: ${window.location.href}`, 'info');
+      log(`Supabase URL: ${SUPABASE_CONFIG.url}`, 'info');
+
+      // Check if we just came back from OAuth
+      const hash = window.location.hash;
+      if (hash) {
+        log('OAuth callback detected, parsing hash...', 'warn');
+        log(`Hash: ${hash.substring(0, 50)}...`, 'info');
+      }
+
+      // Auto-check session
+      setTimeout(() => {
+        testSession();
+      }, 500);
+    });
+  </script>
+</body>
+</html>
