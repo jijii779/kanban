@@ -344,6 +344,125 @@ git push origin main
 
 ## 문제 해결 가이드
 
+### ⚠️ 자주 발생하는 버그 패턴
+
+#### 1. JavaScript로 설정한 display 스타일이 적용되지 않는 경우
+
+**증상**:
+- `element.style.display = 'none'` 실행 후에도 요소가 계속 보임
+- 로그인 후 화면 전환이 안 됨 (login-page가 계속 표시)
+
+**원인**:
+- CSS 파일에 해당 클래스의 display 속성이 이미 정의되어 있음
+- CSS 규칙이 JavaScript inline style보다 우선순위가 높을 수 있음
+- 예: `.login-page { display: flex }` vs `loginPage.style.display = 'none'`
+
+**해결 방법**:
+```javascript
+// ❌ 작동하지 않을 수 있음
+element.style.display = 'none';
+
+// ✅ !important로 강제 적용
+element.style.setProperty('display', 'none', 'important');
+```
+
+**디버깅**:
+```javascript
+// 현재 적용된 스타일 확인
+console.log('Inline style:', element.style.display);
+console.log('Computed style:', window.getComputedStyle(element).display);
+```
+
+#### 2. PostgreSQL integer 범위 초과 오류
+
+**증상**:
+- 카드 생성 시 `value "1779263861894" is out of range for type integer` 에러
+- POST 요청이 400 Bad Request로 실패
+
+**원인**:
+- `Date.now()`는 매우 큰 숫자 반환 (예: 1779263861894)
+- PostgreSQL `integer` 타입 범위: -2147483648 ~ 2147483647
+- `position` 필드를 `Date.now()`로 설정하면 범위 초과
+
+**해결 방법**:
+```javascript
+// ❌ 범위 초과
+position: Date.now()
+
+// ✅ 작은 숫자 사용 (카운터 기반)
+const { count } = await supabase
+  .from('cards')
+  .select('*', { count: 'exact', head: true })
+  .eq('column_id', columnId);
+
+position: (count || 0) + 1
+```
+
+또는 데이터베이스 스키마에서 `bigint` 타입 사용.
+
+#### 3. OAuth 리다이렉트 후 세션 복구 실패
+
+**증상**:
+- GitHub/Google 로그인 후 다시 로그인 화면으로 돌아감
+- `SIGNED_IN` 이벤트는 발생하지만 user가 `null`
+
+**원인**:
+- OAuth 리다이렉트 직후 `getUser()` 호출 시 세션이 아직 복구 안 됨
+- `onAuthStateChange` 이벤트와 `checkAuth()` 타이밍 충돌
+
+**해결 방법**:
+```javascript
+// ❌ 세션 복구 안 기다림
+async function checkAuth() {
+  const user = await getCurrentUser();
+  // ...
+}
+
+// ✅ 세션 먼저 복구
+async function checkAuth() {
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user || await getCurrentUser();
+  // ...
+}
+```
+
+---
+
+### 일반적인 디버깅 절차
+
+#### Step 1: 콘솔 로그 확인
+```javascript
+// 함수 진입점 로깅
+console.log('[functionName] Starting with:', { param1, param2 });
+
+// 중간 단계 로깅
+console.log('[functionName] Step 1 complete:', result1);
+
+// 에러 로깅
+console.error('[functionName] Error:', error);
+```
+
+#### Step 2: DOM 상태 확인
+```javascript
+// 요소 존재 확인
+console.log('Element exists:', !!document.getElementById('element-id'));
+
+// 현재 스타일 확인
+const element = document.getElementById('element-id');
+console.log('Computed style:', window.getComputedStyle(element).display);
+```
+
+#### Step 3: 네트워크 요청 확인
+- Chrome DevTools → Network 탭
+- Supabase 요청 상태 코드 확인 (200, 400, 403 등)
+- Response 탭에서 에러 메시지 확인
+
+#### Step 4: 테스트 페이지 사용
+- `test.html` 파일로 단계별 테스트
+- 각 기능을 독립적으로 검증
+
+---
+
 ### 드래그 앤 드롭이 작동하지 않는 경우
 1. `draggable="true"` 속성 확인
 2. `dragover` 이벤트에서 `e.preventDefault()` 호출 확인
@@ -355,12 +474,19 @@ git push origin main
 2. CSS 셀렉터 오타 확인
 3. 브라우저 캐시 강제 새로고침 (Ctrl+Shift+R)
 4. DevTools의 Elements 패널에서 computed styles 확인
+5. **CSS 우선순위 문제**: `style.setProperty(prop, value, 'important')` 사용
 
 ### JavaScript 에러 발생 시
 1. Console 패널에서 에러 메시지 확인
 2. `<script src="script.js" defer>` 또는 `DOMContentLoaded` 사용 확인
 3. 변수명 오타 확인
 4. `null` 체크 누락 확인
+
+### Supabase 인증/DB 오류 발생 시
+1. **403 Forbidden**: RLS (Row Level Security) 정책 확인
+2. **400 Bad Request**: 데이터 타입/범위 확인 (integer 오버플로우)
+3. **401 Unauthorized**: 세션 만료, 재로그인 필요
+4. 콘솔에서 Supabase 에러 메시지 확인
 
 ---
 
