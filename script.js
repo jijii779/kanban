@@ -75,13 +75,23 @@ async function createCardInDB(content, columnId) {
     return null;
   }
 
+  // Get current card count for this column to determine position
+  const { count, error: countError } = await supabase
+    .from('cards')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', currentUser.id)
+    .eq('column_id', columnId);
+
+  const position = (count || 0) + 1;
+  console.log('Next position for column', columnId, ':', position);
+
   const { data, error } = await supabase
     .from('cards')
     .insert({
       user_id: currentUser.id,
       content,
       column_id: columnId,
-      position: Date.now()
+      position: position
     })
     .select()
     .single();
@@ -98,18 +108,27 @@ async function createCardInDB(content, columnId) {
 
 // Update card column in database
 async function updateCardColumnInDB(cardId, newColumnId) {
+  // Get current card count for the new column
+  const { count, error: countError } = await supabase
+    .from('cards')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', currentUser.id)
+    .eq('column_id', newColumnId);
+
+  const position = (count || 0) + 1;
+
   const { error } = await supabase
     .from('cards')
     .update({
       column_id: newColumnId,
-      position: Date.now()
+      position: position
     })
     .eq('id', cardId)
     .eq('user_id', currentUser.id);
 
   if (error) {
     console.error('Error updating card:', error);
-    showError('Failed to move card. Please try again.');
+    showError('카드 이동 실패: ' + error.message);
     return false;
   }
 
