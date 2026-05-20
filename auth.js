@@ -95,16 +95,25 @@ async function signOut() {
 
 // Check authentication status and redirect
 async function checkAuth() {
+  console.log('[checkAuth] Starting authentication check...');
+
   // First, wait for session restoration (important for OAuth redirects)
   const { data: { session } } = await supabase.auth.getSession();
+  console.log('[checkAuth] Session:', session ? 'exists' : 'null');
 
   const user = session?.user || await getCurrentUser();
+  console.log('[checkAuth] User:', user ? user.email : 'null');
 
   const loginPage = document.getElementById('login-page');
   const kanbanPage = document.getElementById('kanban-page');
+  console.log('[checkAuth] DOM elements:', {
+    loginPage: loginPage ? 'found' : 'missing',
+    kanbanPage: kanbanPage ? 'found' : 'missing'
+  });
 
   if (user) {
     // User is logged in
+    console.log('[checkAuth] User authenticated, showing kanban page');
     loginPage.style.display = 'none';
     kanbanPage.style.display = 'block';
 
@@ -112,11 +121,13 @@ async function checkAuth() {
     const userEmailElement = document.getElementById('user-email');
     if (userEmailElement) {
       userEmailElement.textContent = user.email;
+      console.log('[checkAuth] User email displayed:', user.email);
     }
 
     return user;
   } else {
     // User is not logged in
+    console.log('[checkAuth] No user, showing login page');
     loginPage.style.display = 'flex';
     kanbanPage.style.display = 'none';
     return null;
@@ -125,16 +136,21 @@ async function checkAuth() {
 
 // Listen for auth state changes
 supabase.auth.onAuthStateChange(async (event, session) => {
-  console.log('Auth state changed:', event, session?.user?.email);
+  console.log('[onAuthStateChange] Auth state changed:', event, session?.user?.email);
 
   if (event === 'SIGNED_IN') {
+    console.log('[onAuthStateChange] SIGNED_IN event detected, calling checkAuth()');
     const user = await checkAuth();
+    console.log('[onAuthStateChange] checkAuth() returned user:', user ? user.email : 'null');
+
     if (user) {
       // Trigger kanban board initialization
+      console.log('[onAuthStateChange] Dispatching kanban:init event');
       const kanbanInitEvent = new CustomEvent('kanban:init');
       window.dispatchEvent(kanbanInitEvent);
     }
   } else if (event === 'SIGNED_OUT') {
+    console.log('[onAuthStateChange] SIGNED_OUT event, reloading page');
     window.location.reload();
   }
 });

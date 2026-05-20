@@ -497,12 +497,18 @@ function attachKanbanEventListeners() {
 }
 
 async function initializeKanbanBoard() {
+  console.log('[initializeKanbanBoard] Starting initialization...');
   currentUser = await getCurrentUser();
+  console.log('[initializeKanbanBoard] Current user:', currentUser ? currentUser.email : 'null');
 
   if (currentUser) {
+    console.log('[initializeKanbanBoard] Rendering cards...');
     await renderCards();
+    console.log('[initializeKanbanBoard] Attaching event listeners...');
     attachKanbanEventListeners();
-    console.log('Kanban Board initialized successfully!');
+    console.log('[initializeKanbanBoard] Kanban Board initialized successfully!');
+  } else {
+    console.warn('[initializeKanbanBoard] No current user, skipping initialization');
   }
 }
 
@@ -530,6 +536,6 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 
 // Listen for kanban board initialization event (triggered after login)
 window.addEventListener('kanban:init', async () => {
-  console.log('Kanban board initialization triggered after login');
+  console.log('[kanban:init] Event received, initializing kanban board...');
   await initializeKanbanBoard();
 });
