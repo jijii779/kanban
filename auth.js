@@ -95,7 +95,10 @@ async function signOut() {
 
 // Check authentication status and redirect
 async function checkAuth() {
-  const user = await getCurrentUser();
+  // First, wait for session restoration (important for OAuth redirects)
+  const { data: { session } } = await supabase.auth.getSession();
+
+  const user = session?.user || await getCurrentUser();
 
   const loginPage = document.getElementById('login-page');
   const kanbanPage = document.getElementById('kanban-page');
