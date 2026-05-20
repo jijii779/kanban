@@ -311,11 +311,22 @@ function handleDeleteClick(e) {
 // ==========================================================================
 
 function setupAddCardForm(column) {
+  const columnId = column.getAttribute('data-column-id');
+  console.log('[setupAddCardForm] Setting up form for column:', columnId);
+
   const addCardBtn = column.querySelector('.add-card-btn');
   const inputContainer = column.querySelector('.add-card-input-container');
   const input = column.querySelector('.add-card-input');
   const submitBtn = column.querySelector('.add-card-submit');
   const cancelBtn = column.querySelector('.add-card-cancel');
+
+  // Check if already has event listeners
+  if (submitBtn.dataset.listenerAttached) {
+    console.warn('[setupAddCardForm] Listeners already attached for column:', columnId);
+    return;
+  }
+
+  console.log('[setupAddCardForm] Attaching event listeners for column:', columnId);
 
   addCardBtn.addEventListener('click', () => {
     addCardBtn.style.display = 'none';
@@ -324,6 +335,7 @@ function setupAddCardForm(column) {
   });
 
   submitBtn.addEventListener('click', async () => {
+    console.log('[submitBtn click] Event fired for column:', columnId);
     const content = input.value.trim();
     console.log('Add button clicked, content:', content);
 
@@ -358,6 +370,10 @@ function setupAddCardForm(column) {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Add';
   });
+
+  // Mark as listener attached
+  submitBtn.dataset.listenerAttached = 'true';
+  console.log('[setupAddCardForm] Listeners attached successfully for column:', columnId);
 
   cancelBtn.addEventListener('click', () => {
     input.value = '';
@@ -486,18 +502,45 @@ async function renderCards() {
 }
 
 function attachKanbanEventListeners() {
+  console.log('[attachKanbanEventListeners] Starting...');
+
   document.querySelectorAll('.column').forEach(column => {
+    const columnId = column.getAttribute('data-column-id');
+    console.log('[attachKanbanEventListeners] Processing column:', columnId);
+
+    // Check if already attached
+    if (column.dataset.listenersAttached) {
+      console.warn('[attachKanbanEventListeners] Listeners already attached to column:', columnId);
+      return;
+    }
+
     column.addEventListener('dragover', handleDragOver);
     column.addEventListener('dragenter', handleDragEnter);
     column.addEventListener('dragleave', handleDragLeave);
     column.addEventListener('drop', handleDrop);
 
     setupAddCardForm(column);
+
+    // Mark as attached
+    column.dataset.listenersAttached = 'true';
+    console.log('[attachKanbanEventListeners] Listeners attached to column:', columnId);
   });
+
+  console.log('[attachKanbanEventListeners] Complete');
 }
+
+// Track if kanban board is already initialized
+let isKanbanInitialized = false;
 
 async function initializeKanbanBoard() {
   console.log('[initializeKanbanBoard] Starting initialization...');
+  console.log('[initializeKanbanBoard] Already initialized?', isKanbanInitialized);
+
+  if (isKanbanInitialized) {
+    console.warn('[initializeKanbanBoard] Already initialized, skipping...');
+    return;
+  }
+
   currentUser = await getCurrentUser();
   console.log('[initializeKanbanBoard] Current user:', currentUser ? currentUser.email : 'null');
 
@@ -507,6 +550,7 @@ async function initializeKanbanBoard() {
     console.log('[initializeKanbanBoard] Attaching event listeners...');
     attachKanbanEventListeners();
     console.log('[initializeKanbanBoard] Kanban Board initialized successfully!');
+    isKanbanInitialized = true;
   } else {
     console.warn('[initializeKanbanBoard] No current user, skipping initialization');
   }
@@ -517,6 +561,8 @@ async function initializeKanbanBoard() {
 // ==========================================================================
 
 async function initializeApp() {
+  console.log('[initializeApp] Starting app initialization...');
+
   // Setup authentication handlers
   setupAuthEventHandlers();
 
@@ -524,7 +570,10 @@ async function initializeApp() {
   const user = await checkAuth();
 
   if (user) {
+    console.log('[initializeApp] User found, initializing kanban board...');
     await initializeKanbanBoard();
+  } else {
+    console.log('[initializeApp] No user, showing login page...');
   }
 }
 
