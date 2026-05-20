@@ -345,7 +345,6 @@ function setupAddCardForm(column) {
       return;
     }
 
-    const columnId = column.getAttribute('data-column-id');
     console.log('Adding card to column:', columnId);
 
     // Disable button while creating
