@@ -1,4 +1,3 @@
-config.js
 .env
 *.local
 node_modules/

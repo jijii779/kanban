@@ -483,3 +483,9 @@ async function initializeApp() {
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', initializeApp);
+
+// Listen for kanban board initialization event (triggered after login)
+window.addEventListener('kanban:init', async () => {
+  console.log('Kanban board initialization triggered after login');
+  await initializeKanbanBoard();
+});

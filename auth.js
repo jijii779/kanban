@@ -121,16 +121,16 @@ async function checkAuth() {
 }
 
 // Listen for auth state changes
-supabase.auth.onAuthStateChange((event, session) => {
+supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('Auth state changed:', event, session?.user?.email);
 
   if (event === 'SIGNED_IN') {
-    checkAuth().then(user => {
-      if (user) {
-        // Reload kanban data
-        window.location.reload();
-      }
-    });
+    const user = await checkAuth();
+    if (user) {
+      // Trigger kanban board initialization
+      const kanbanInitEvent = new CustomEvent('kanban:init');
+      window.dispatchEvent(kanbanInitEvent);
+    }
   } else if (event === 'SIGNED_OUT') {
     window.location.reload();
   }
